@@ -87,6 +87,7 @@ class sentinel_2pc_test : public ::testing::Test {
 
     static constexpr unsigned short m_coordinator_port = 32001;
     static constexpr unsigned short m_sentinel_port = 32002;
+    static constexpr unsigned short m_bad_port = 1;
     static constexpr auto m_processing_delay = std::chrono::milliseconds(100);
     std::unique_ptr<cbdc::network::connection_manager> m_dummy_coordinator_net;
     std::optional<std::thread> m_dummy_coordinator_thread;
@@ -178,8 +179,10 @@ TEST_F(sentinel_2pc_test, bad_coordinator_endpoint) {
     // Replace the valid coordinator endpoint defined in the fixture
     // with an invalid endpoint.
     m_opts.m_coordinator_endpoints.clear();
+    // Use a local, unbound port so the connection is refused immediately
+    // rather than blocking on DNS for an unresolvable hostname.
     const auto bad_coordinator_ep
-        = std::make_pair("abcdefg", m_coordinator_port);
+        = std::make_pair(cbdc::network::localhost, m_bad_port);
     m_opts.m_coordinator_endpoints.resize(1);
     m_opts.m_coordinator_endpoints[0].push_back(bad_coordinator_ep);
 
@@ -196,7 +199,8 @@ TEST_F(sentinel_2pc_test, bad_coordinator_endpoint) {
 TEST_F(sentinel_2pc_test, bad_sentinel_client_endpoint) {
     // Test that a sentinel client fails to initialize
     // when given a bad endpoint.
-    constexpr auto bad_endpoint = std::make_pair("abcdefg", m_sentinel_port);
+    const auto bad_endpoint
+        = std::make_pair(cbdc::network::localhost, m_bad_port);
     const std::vector<cbdc::network::endpoint_t> bad_endpoints{bad_endpoint};
     auto client = cbdc::sentinel::rpc::client(bad_endpoints, m_logger);
     ASSERT_FALSE(client.init());
@@ -216,7 +220,10 @@ TEST_F(sentinel_2pc_test, bad_rpc_server_endpoint) {
     // an rpc server.  Replacing the valid endpoint defined in the fixture with
     // an invalid endpoint should cause the rpc server to fail to initialize.
     m_opts.m_sentinel_endpoints.clear();
-    constexpr auto bad_endpoint = std::make_pair("abcdefg", m_sentinel_port);
+    // Reuse the dummy coordinator's port so binding the sentinel RPC server
+    // fails immediately with EADDRINUSE.
+    const auto bad_endpoint
+        = std::make_pair(cbdc::network::localhost, m_coordinator_port);
     m_opts.m_sentinel_endpoints.resize(1);
     m_opts.m_sentinel_endpoints.emplace_back(bad_endpoint);
 

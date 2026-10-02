@@ -263,6 +263,12 @@ All contributions should include (or update) any tests relevant to the modified 
 You can use the provided `./scripts/test.sh` to run the full test suite (and generate a full coverage report).
 Additionally, any contribution which results in reduced overall code coverage will be put on-hold for review until the tests have been added or updated.
 
+Tests are expected to fail fast. Avoid hostnames that require DNS resolution in
+failure-path tests (an unresolved hostname can block for tens of seconds) and
+prefer local addresses. If a suite appears to stall, use
+`./scripts/find-slow-tests.py` to run it one case at a time under a per-test
+timeout and identify the culprit.
+
 ### How to write a good commit message
 
 See our [FAQs](getting-started.md#what-does-a-good-commit-look-like) for general advice as well as some links to helpful resources.
