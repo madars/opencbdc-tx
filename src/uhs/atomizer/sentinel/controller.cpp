@@ -25,7 +25,7 @@ namespace cbdc::sentinel {
             m_logger->error("No private key specified");
             return false;
         }
-        m_privkey = skey->second;
+        m_sign_ctx = mldsa_precompute(skey->second);
 
         m_shard_data.reserve(m_opts.m_shard_endpoints.size());
         for(size_t i{0}; i < m_opts.m_shard_endpoints.size(); i++) {
@@ -106,7 +106,7 @@ namespace cbdc::sentinel {
 
     void controller::send_transaction(const transaction::full_tx& tx) {
         auto compact_tx = cbdc::transaction::compact_tx(tx);
-        auto attestation = compact_tx.sign(m_privkey, m_sentinel_id);
+        auto attestation = compact_tx.sign(m_sign_ctx, m_sentinel_id);
         compact_tx.m_attestations.insert(attestation);
 
         gather_attestations(tx, compact_tx, {});
@@ -119,7 +119,7 @@ namespace cbdc::sentinel {
             return std::nullopt;
         }
         auto compact_tx = cbdc::transaction::compact_tx(tx);
-        auto attestation = compact_tx.sign(m_privkey, m_sentinel_id);
+        auto attestation = compact_tx.sign(m_sign_ctx, m_sentinel_id);
         return attestation;
     }
 

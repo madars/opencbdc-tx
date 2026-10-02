@@ -148,6 +148,15 @@ namespace cbdc::transaction {
                                 uint32_t sentinel_id) const
             -> sentinel_attestation;
 
+        /// Sign the compact transaction using a precomputed signing context,
+        /// for callers (e.g. a sentinel) that sign repeatedly under one key.
+        /// \param ctx precomputed signing context.
+        /// \param sentinel_id ID of the sentinel signing the attestation.
+        /// \return sentinel attestation.
+        [[nodiscard]] auto sign(const pq_sign_ctx_t& ctx,
+                                uint32_t sentinel_id) const
+            -> sentinel_attestation;
+
         /// Verify the given attestation contains a valid signature that
         /// matches the compact transaction.
         /// \param att sentinel attestation containing a sentinel ID and

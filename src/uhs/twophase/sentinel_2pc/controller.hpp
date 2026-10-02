@@ -100,7 +100,7 @@ namespace cbdc::sentinel_2pc {
         std::default_random_engine m_rand{m_r()};
         std::uniform_int_distribution<size_t> m_dist{};
 
-        pq_privkey_t m_privkey{};
+        pq_sign_ctx_t m_sign_ctx{};
     };
 }
 

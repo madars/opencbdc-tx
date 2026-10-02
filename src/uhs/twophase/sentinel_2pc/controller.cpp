@@ -43,7 +43,7 @@ namespace cbdc::sentinel_2pc {
                 return false;
             }
         } else {
-            m_privkey = skey->second;
+            m_sign_ctx = mldsa_precompute(skey->second);
         }
 
         auto retry_delay = std::chrono::seconds(1);
@@ -112,7 +112,7 @@ namespace cbdc::sentinel_2pc {
         auto compact_tx = cbdc::transaction::compact_tx(tx);
 
         if(m_opts.m_attestation_threshold > 0) {
-            auto attestation = compact_tx.sign(m_privkey, m_sentinel_id);
+            auto attestation = compact_tx.sign(m_sign_ctx, m_sentinel_id);
             compact_tx.m_attestations.insert(attestation);
         }
 
@@ -146,7 +146,7 @@ namespace cbdc::sentinel_2pc {
             return true;
         }
         auto compact_tx = cbdc::transaction::compact_tx(tx);
-        auto attestation = compact_tx.sign(m_privkey, m_sentinel_id);
+        auto attestation = compact_tx.sign(m_sign_ctx, m_sentinel_id);
         result_callback(std::move(attestation));
         return true;
     }

@@ -93,6 +93,30 @@ TEST(mldsa, compact_tx_attestation_roundtrip) {
         1));
 }
 
+TEST(mldsa, precomputed_sign) {
+    cbdc::pq_pubkey_t pk{};
+    cbdc::pq_privkey_t sk{};
+    ASSERT_TRUE(cbdc::mldsa_keypair(pk, sk));
+
+    const auto pre = cbdc::mldsa_precompute(sk);
+    ASSERT_FALSE(pre.empty());
+
+    std::array<unsigned char, 32> msg{};
+    msg.fill(0x11);
+    cbdc::pq_signature_t sig{};
+    ASSERT_TRUE(cbdc::mldsa_sign_precomputed(msg.data(), msg.size(), pre, sig));
+    EXPECT_TRUE(cbdc::mldsa_verify(msg.data(), msg.size(), sig, pk));
+
+    // The sentinel path: precomputed context produces verifiable attestations.
+    cbdc::transaction::wallet w;
+    auto mint = w.mint_new_coins(1, 100);
+    w.confirm_transaction(mint);
+    auto full = w.send_to(5, w.generate_key(), true).value();
+    auto ctx = cbdc::transaction::compact_tx(full);
+    const auto att = ctx.sign(pre, 0);
+    EXPECT_TRUE(ctx.verify(att, pk));
+}
+
 TEST(mldsa, address_hex_decode) {
     cbdc::pq_pubkey_t pk{};
     cbdc::pq_privkey_t sk{};

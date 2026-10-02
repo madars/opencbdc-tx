@@ -76,7 +76,7 @@ namespace cbdc::sentinel {
         std::uniform_int_distribution<size_t> m_shard_dist{};
         std::mutex m_rand_mut;
 
-        pq_privkey_t m_privkey{};
+        pq_sign_ctx_t m_sign_ctx{};
 
         void send_transaction(const transaction::full_tx& tx);
 

@@ -145,6 +145,20 @@ namespace cbdc::transaction {
         return {sentinel_id, sig};
     }
 
+    auto compact_tx::sign(const pq_sign_ctx_t& ctx,
+                          uint32_t sentinel_id) const
+        -> sentinel_attestation {
+        const auto payload = hash();
+        auto sig = pq_signature_t();
+        [[maybe_unused]] const auto ret
+            = mldsa_sign_precomputed(payload.data(),
+                                     payload.size(),
+                                     ctx,
+                                     sig);
+        assert(ret);
+        return {sentinel_id, sig};
+    }
+
     auto compact_tx::hash() const -> hash_t {
         // Don't include the attesations in the hash
         auto ctx = *this;
