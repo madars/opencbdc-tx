@@ -2,3 +2,6 @@
 	path = 3rdparty/secp256k1
 	url = https://github.com/bitcoin-core/secp256k1.git
 	ignore = dirty
+[submodule "3rdparty/dilithium"]
+	path = 3rdparty/dilithium
+	url = https://github.com/pq-crystals/dilithium.git

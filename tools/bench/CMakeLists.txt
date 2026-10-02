@@ -37,4 +37,6 @@ target_link_libraries(atomizer-cli-watchtower watchtower
                                               ${LEVELDB_LIBRARY}
                                               ${CMAKE_THREAD_LIBS_INIT})
 
-add_subdirectory(parsec)
+add_executable(dilithium-bench dilithium_bench.c)
+target_compile_definitions(dilithium-bench PRIVATE DILITHIUM_MODE=${MLDSA_MODE})
+target_link_libraries(dilithium-bench mldsa)

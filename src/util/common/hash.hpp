@@ -8,6 +8,7 @@
 
 #include "crypto/siphash.h"
 
+#include <algorithm>
 #include <array>
 #include <sstream>
 
@@ -27,6 +28,26 @@ namespace cbdc {
     /// \param val string with a hex representation of a hash.
     /// \return hash value of the string.
     auto hash_from_hex(const std::string& val) -> hash_t;
+
+    /// Parses a hexadecimal string into a fixed-size byte array.
+    /// Ignores an odd trailing nibble and truncates at N bytes.
+    /// \tparam N number of bytes in the output array.
+    /// \param val string with a hex representation.
+    /// \return byte array containing the parsed value.
+    template<size_t N>
+    auto bytes_from_hex(const std::string& val)
+        -> std::array<unsigned char, N> {
+        std::array<unsigned char, N> ret{};
+        const auto bytes = std::min(N, val.size() / 2);
+        for(size_t i = 0; i < bytes; i++) {
+            unsigned int v{};
+            std::stringstream s;
+            s << std::hex << val.substr(i * 2, 2);
+            s >> v;
+            ret[i] = static_cast<unsigned char>(v);
+        }
+        return ret;
+    }
 
     /// Calculates the SHA256 hash of the specified data.
     /// \param data byte array containing data to hash.

@@ -4,3 +4,4 @@ target_link_libraries(secp256k1 INTERFACE ${CMAKE_THREAD_LIBS_INIT})
 
 add_subdirectory(crypto)
 add_subdirectory(bech32)
+add_subdirectory(mldsa)
