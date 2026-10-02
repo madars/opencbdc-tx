@@ -1,6 +1,23 @@
 # 2PC & Atomizer User Guide
 NOTE: The easiest way to compile the code and run the system locally is using [Docker](https://www.docker.com).
 
+## Run locally without Docker
+
+The UHS architectures sign transactions with [ML-DSA (FIPS 204)](https://csrc.nist.gov/pubs/fips/204/final)
+rather than secp256k1. A single-node 2PC system can be started locally with:
+
+```console
+$ ./scripts/twophase-run-local.py
+```
+
+This rewrites the endpoints in `2pc-compose.cfg` to local addresses, starts the
+locking shard, coordinator and sentinel as child processes, and stops them on
+`Ctrl-C`. Use `--build-dir`/`--config`/`--ip` as needed (`--help` for details).
+
+Client addresses are the hex-encoded ML-DSA public key (~2.6 KB of text for
+ML-DSA-44), so `newaddress` prints a long hex string instead of a Bech32
+address.
+
 ## Setup Docker
 
 * [Install Docker](https://docs.docker.com/get-docker/)

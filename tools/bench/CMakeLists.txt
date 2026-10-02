@@ -40,3 +40,14 @@ target_link_libraries(atomizer-cli-watchtower watchtower
 add_executable(dilithium-bench dilithium_bench.c)
 target_compile_definitions(dilithium-bench PRIVATE DILITHIUM_MODE=${MLDSA_MODE})
 target_link_libraries(dilithium-bench mldsa)
+
+add_executable(sentinel-bench sentinel_bench.cpp)
+target_link_libraries(sentinel-bench transaction
+                                       serialization
+                                       common
+                                       crypto
+                                       secp256k1
+                                       mldsa
+                                       ${CMAKE_THREAD_LIBS_INIT})
+
+add_subdirectory(parsec)

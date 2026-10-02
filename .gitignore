@@ -60,6 +60,15 @@ ticket_machine_raft_*/
 blocks.dat
 test_db
 
+# Local 2PC/atomizer run artifacts
+*_raft_config_*.dat
+*_raft_state_*.dat
+*_raft_log_*/
+mempool*.dat
+wallet*.dat
+logs/
+run/
+
 # System files
 .DS_Store
 .dirstamp
