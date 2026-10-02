@@ -27,9 +27,6 @@ namespace cbdc::sentinel {
         }
         m_privkey = skey->second;
 
-        auto pubkey = pubkey_from_privkey(m_privkey, m_secp.get());
-        m_logger->info("Sentinel public key:", cbdc::to_string(pubkey));
-
         m_shard_data.reserve(m_opts.m_shard_endpoints.size());
         for(size_t i{0}; i < m_opts.m_shard_endpoints.size(); i++) {
             const auto& shard = m_opts.m_shard_endpoints[i];
@@ -109,7 +106,7 @@ namespace cbdc::sentinel {
 
     void controller::send_transaction(const transaction::full_tx& tx) {
         auto compact_tx = cbdc::transaction::compact_tx(tx);
-        auto attestation = compact_tx.sign(m_secp.get(), m_privkey);
+        auto attestation = compact_tx.sign(m_privkey, m_sentinel_id);
         compact_tx.m_attestations.insert(attestation);
 
         gather_attestations(tx, compact_tx, {});
@@ -122,7 +119,7 @@ namespace cbdc::sentinel {
             return std::nullopt;
         }
         auto compact_tx = cbdc::transaction::compact_tx(tx);
-        auto attestation = compact_tx.sign(m_secp.get(), m_privkey);
+        auto attestation = compact_tx.sign(m_privkey, m_sentinel_id);
         return attestation;
     }
 

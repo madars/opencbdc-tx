@@ -62,12 +62,7 @@ auto main(int argc, char** argv) -> int {
         logger.error("Seed private key not specified");
         return -1;
     }
-    auto secp_context = std::unique_ptr<secp256k1_context,
-                                        void(*)(secp256k1_context*)>(
-        secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
-        &secp256k1_context_destroy);
-    auto pubkey = cbdc::pubkey_from_privkey(cfg.m_seed_privkey.value(),
-                                            secp_context.get());
+    auto pubkey = cbdc::mldsa_pubkey_from_privkey(cfg.m_seed_privkey.value());
     auto witness_commitment
         = cbdc::transaction::validation::get_p2pk_witness_commitment(pubkey);
 

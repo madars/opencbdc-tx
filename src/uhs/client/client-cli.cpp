@@ -4,8 +4,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "atomizer_client.hpp"
-#include "bech32/bech32.h"
-#include "bech32/util/strencodings.h"
 #include "client.hpp"
 #include "crypto/sha256.h"
 #include "twophase_client.hpp"
@@ -38,7 +36,7 @@ auto mint_command(cbdc::client& client, const std::vector<std::string>& args)
 void print_tx_result(
     const std::optional<cbdc::transaction::full_tx>& tx,
     const std::optional<cbdc::sentinel::execute_response>& resp,
-    const cbdc::hash_t& pubkey) {
+    const cbdc::pq_pubkey_t& pubkey) {
     std::cout << "tx_id:" << std::endl
               << cbdc::to_string(cbdc::transaction::tx_id(tx.value()))
               << std::endl;
@@ -121,24 +119,12 @@ auto fan_command(cbdc::client& client, const std::vector<std::string>& args)
 
 void newaddress_command(cbdc::client& client) {
     const auto addr = client.new_address();
-    auto addr_vec
-        = std::vector<uint8_t>(sizeof(cbdc::client::address_type::public_key)
-                               + std::tuple_size<decltype(addr)>::value);
-    addr_vec[0] = static_cast<uint8_t>(cbdc::client::address_type::public_key);
-    std::copy_n(addr.begin(),
-                addr.size(),
-                addr_vec.begin()
-                    + sizeof(cbdc::client::address_type::public_key));
-    auto data = std::vector<uint8_t>();
-    ConvertBits<cbdc::address::bits_per_byte,
-                cbdc::address::bech32_bits_per_symbol,
-                true>(
-        [&](uint8_t c) {
-            data.push_back(c);
-        },
-        addr_vec.begin(),
-        addr_vec.end());
-    std::cout << bech32::Encode(cbdc::config::bech32_hrp, data) << std::endl;
+    // Research prototype: addresses are the raw ML-DSA public key in hex.
+    static constexpr auto hex_digits = "0123456789abcdef";
+    for(const auto b : addr) {
+        std::cout << hex_digits[b >> 4] << hex_digits[b & 0xf];
+    }
+    std::cout << std::endl;
 }
 
 auto importinput_command(cbdc::client& client,

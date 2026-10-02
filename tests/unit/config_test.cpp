@@ -5,8 +5,11 @@
 
 #include "util/common/config.hpp"
 
+#include <filesystem>
+#include <fstream>
 #include <gtest/gtest.h>
 #include <string>
+#include <variant>
 
 // TODO: Add file parsing tests.
 
@@ -89,6 +92,33 @@ TEST_F(config_validation_test, twophase_coordinator_invariant) {
     m_twophase_opts.m_coordinator_endpoints.clear();
     auto err = cbdc::config::check_options(m_twophase_opts);
     ASSERT_TRUE(err.has_value());
+}
+
+TEST_F(config_validation_test, sentinel_key_length_validated) {
+    // A sentinel key that is not exactly the ML-DSA hex length must be
+    // rejected rather than silently truncated or zero-padded.
+    const auto path
+        = std::filesystem::temp_directory_path() / "bad_sentinel_key.cfg";
+    {
+        std::ofstream out(path);
+        out << "2pc=1\n"
+               "sentinel_count=1\n"
+               "sentinel0_endpoint=\"127.0.0.1:5555\"\n"
+               "sentinel0_private_key=\"00\"\n"
+               "sentinel0_public_key=\"00\"\n"
+               "coordinator_count=1\n"
+               "coordinator0_count=1\n"
+               "coordinator0_0_endpoint=\"127.0.0.1:7777\"\n"
+               "coordinator0_0_raft_endpoint=\"127.0.0.1:7778\"\n"
+               "shard_count=1\n"
+               "shard0_count=1\n"
+               "shard0_0_endpoint=\"127.0.0.1:6666\"\n"
+               "shard0_0_raft_endpoint=\"127.0.0.1:6667\"\n"
+               "shard0_0_readonly_endpoint=\"127.0.0.1:6767\"\n";
+    }
+    auto res = cbdc::config::load_options(path.string());
+    EXPECT_TRUE(std::holds_alternative<std::string>(res));
+    std::filesystem::remove(path);
 }
 
 TEST_F(config_validation_test, parsing_validation) {

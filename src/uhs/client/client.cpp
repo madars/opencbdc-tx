@@ -5,8 +5,6 @@
 
 #include "client.hpp"
 
-#include "bech32/bech32.h"
-#include "bech32/util/strencodings.h"
 #include "crypto/sha256.h"
 #include "uhs/sentinel/format.hpp"
 #include "uhs/transaction/messages.hpp"
@@ -17,6 +15,8 @@
 #include "util/serialization/ostream_serializer.hpp"
 #include "util/serialization/util.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <iomanip>
 #include <utility>
@@ -25,36 +25,23 @@ namespace cbdc {
 
     namespace address {
         auto decode(const std::string& addr_str)
-            -> std::optional<cbdc::hash_t> {
-            // TODO: if/when bech32m is merged into Bitcoin Core, switch to
-            // that.
-            //       see: https://github.com/bitcoin/bitcoin/pull/20861
-            const auto [hrp, enc_data] = bech32::Decode(addr_str);
-            if(hrp != cbdc::config::bech32_hrp) {
-                std::cout << "Invalid address encoding" << std::endl;
+            -> std::optional<pq_pubkey_t> {
+            static constexpr auto hex_len = mldsa_pubkey_len * 2;
+            if(addr_str.size() != hex_len) {
+                std::cout << "Address is not the expected length" << std::endl;
                 return std::nullopt;
             }
-            auto data = std::vector<uint8_t>();
-            ConvertBits<bech32_bits_per_symbol, bits_per_byte, false>(
-                [&](uint8_t c) {
-                    data.push_back(c);
-                },
-                enc_data.begin(),
-                enc_data.end());
-
-            auto pubkey = cbdc::hash_t();
-            if(data[0]
-                   != static_cast<uint8_t>(
-                       cbdc::client::address_type::public_key)
-               || data.size() != pubkey.size() + 1) {
-                std::cout << "Address is not a supported type" << std::endl;
+            const auto is_hex = std::all_of(
+                addr_str.begin(),
+                addr_str.end(),
+                [](unsigned char c) {
+                    return std::isxdigit(c) != 0;
+                });
+            if(!is_hex) {
+                std::cout << "Address is not valid hex" << std::endl;
                 return std::nullopt;
             }
-
-            data.erase(data.begin());
-            std::copy_n(data.begin(), pubkey.size(), pubkey.begin());
-
-            return pubkey;
+            return bytes_from_hex<mldsa_pubkey_len>(addr_str);
         }
     }
 
@@ -118,7 +105,7 @@ namespace cbdc {
         save();
     }
 
-    auto client::create_transaction(uint32_t value, const pubkey_t& payee)
+    auto client::create_transaction(uint32_t value, const pq_pubkey_t& payee)
         -> std::optional<transaction::full_tx> {
         auto tx = m_wallet.send_to(value, payee, true);
         if(!tx.has_value()) {
@@ -130,7 +117,7 @@ namespace cbdc {
         return tx;
     }
 
-    auto client::send(uint32_t value, const pubkey_t& payee)
+    auto client::send(uint32_t value, const pq_pubkey_t& payee)
         -> std::pair<std::optional<transaction::full_tx>,
                      std::optional<cbdc::sentinel::execute_response>> {
         static constexpr auto null_return
@@ -150,7 +137,7 @@ namespace cbdc {
         return std::make_pair(spend_tx.value(), res.value());
     }
 
-    auto client::fan(uint32_t count, uint32_t value, const pubkey_t& payee)
+    auto client::fan(uint32_t count, uint32_t value, const pq_pubkey_t& payee)
         -> std::pair<std::optional<transaction::full_tx>,
                      std::optional<cbdc::sentinel::execute_response>> {
         static constexpr auto null_return
@@ -195,7 +182,7 @@ namespace cbdc {
     }
 
     auto client::export_send_inputs(const transaction::full_tx& send_tx,
-                                    const pubkey_t& payee)
+                                    const pq_pubkey_t& payee)
         -> std::vector<transaction::input> {
         return transaction::wallet::export_send_inputs(send_tx, payee);
     }
@@ -209,7 +196,7 @@ namespace cbdc {
         }
     }
 
-    auto client::new_address() -> pubkey_t {
+    auto client::new_address() -> pq_pubkey_t {
         auto addr = m_wallet.generate_key();
         save();
         return addr;

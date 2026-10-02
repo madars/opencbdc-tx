@@ -64,11 +64,8 @@ namespace cbdc::test {
         opts = std::get<cbdc::config::options>(opts_or_err);
     }
 
-    void sign_tx(compact_transaction& tx, const privkey_t& key) {
-        auto secp = std::unique_ptr<secp256k1_context, void(*)(secp256k1_context*)>{
-            secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
-            &secp256k1_context_destroy};
-        auto att = tx.sign(secp.get(), key);
+    void sign_tx(compact_transaction& tx, const pq_privkey_t& key) {
+        auto att = tx.sign(key, 0);
         tx.m_attestations.insert(att);
     }
 }

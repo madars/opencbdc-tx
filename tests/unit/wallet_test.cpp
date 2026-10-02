@@ -54,7 +54,7 @@ TEST_F(WalletTest, update_balance_double_credit) {
 }
 
 TEST_F(WalletTest, export_send_input_basic) {
-    cbdc::pubkey_t target_addr = {'a', 'b', 'c', 'd'};
+    cbdc::pq_pubkey_t target_addr = {'a', 'b', 'c', 'd'};
     auto send_tx = m_wallet.send_to(25, target_addr, false).value();
     auto receiver_inputs
         = cbdc::transaction::wallet::export_send_inputs(send_tx, target_addr);
@@ -66,7 +66,7 @@ TEST_F(WalletTest, export_send_input_basic) {
 }
 
 TEST_F(WalletTest, fan_out) {
-    cbdc::pubkey_t target_addr = {'a', 'b', 'c', 'd'};
+    cbdc::pq_pubkey_t target_addr = {'a', 'b', 'c', 'd'};
     auto send_tx = m_wallet.fan(20, 5, target_addr, false).value();
     ASSERT_EQ(send_tx.m_outputs.size(), 20UL);
     auto witcom = cbdc::transaction::validation::get_p2pk_witness_commitment(
@@ -81,7 +81,7 @@ TEST_F(WalletTest, fan_out) {
 }
 
 TEST_F(WalletTest, fan_out_change) {
-    cbdc::pubkey_t target_addr = {'a', 'b', 'c', 'd'};
+    cbdc::pq_pubkey_t target_addr = {'a', 'b', 'c', 'd'};
     auto send_tx = m_wallet.fan(19, 5, target_addr, false).value();
     ASSERT_EQ(send_tx.m_outputs.size(), 20UL);
     auto witcom = cbdc::transaction::validation::get_p2pk_witness_commitment(

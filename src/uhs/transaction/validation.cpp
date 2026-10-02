@@ -7,19 +7,10 @@
 
 #include "transaction.hpp"
 
-#include <cassert>
-#include <memory>
-#include <secp256k1.h>
-#include <secp256k1_schnorrsig.h>
+#include <algorithm>
 #include <set>
 
 namespace cbdc::transaction::validation {
-    static const auto secp_context
-        = std::unique_ptr<secp256k1_context,
-                          void(*)(secp256k1_context*)>(
-            secp256k1_context_create(SECP256K1_CONTEXT_VERIFY),
-            &secp256k1_context_destroy);
-
     auto input_error::operator==(const input_error& rhs) const -> bool {
         return std::tie(m_code, m_data_err, m_idx)
             == std::tie(rhs.m_code, rhs.m_data_err, rhs.m_idx);
@@ -208,33 +199,24 @@ namespace cbdc::transaction::validation {
                                       size_t idx)
         -> std::optional<witness_error_code> {
         const auto& wit = tx.m_witness[idx];
-        secp256k1_xonly_pubkey pubkey{};
 
         // TODO: use C++20 std::span to avoid pointer arithmetic in validation
         // code
-        pubkey_t pubkey_arr{};
+        pq_pubkey_t pubkey_arr{};
         std::memcpy(pubkey_arr.data(),
                     &wit[sizeof(witness_program_type)],
                     sizeof(pubkey_arr));
-        if(secp256k1_xonly_pubkey_parse(secp_context.get(),
-                                        &pubkey,
-                                        pubkey_arr.data())
-           != 1) {
-            return witness_error_code::invalid_public_key;
-        }
 
         const auto sighash = cbdc::transaction::tx_id(tx);
 
-        std::array<unsigned char, sig_len> sig_arr{};
+        pq_signature_t sig_arr{};
         std::memcpy(sig_arr.data(),
                     &wit[p2pk_witness_prog_len],
                     sizeof(sig_arr));
-        if(secp256k1_schnorrsig_verify(secp_context.get(),
-                                       sig_arr.data(),
-                                       sighash.data(),
-                                       sighash.size(),
-                                       &pubkey)
-           != 1) {
+        if(!mldsa_verify(sighash.data(),
+                         sighash.size(),
+                         sig_arr,
+                         pubkey_arr)) {
             return witness_error_code::invalid_signature;
         }
 
@@ -295,7 +277,7 @@ namespace cbdc::transaction::validation {
         return std::nullopt;
     }
 
-    auto get_p2pk_witness_commitment(const pubkey_t& payee) -> hash_t {
+    auto get_p2pk_witness_commitment(const pq_pubkey_t& payee) -> hash_t {
         auto witness_program = to_vector(payee);
         witness_program.insert(witness_program.begin(),
                                std::byte(witness_program_type::p2pk));
@@ -407,17 +389,18 @@ namespace cbdc::transaction::validation {
 
     auto check_attestations(
         const transaction::compact_tx& tx,
-        const std::unordered_set<pubkey_t, hashing::null>& pubkeys,
+        const std::unordered_map<size_t, pq_pubkey_t>& pubkeys,
         size_t threshold) -> bool {
         if(tx.m_attestations.size() < threshold) {
             return false;
         }
 
-        return std::all_of(tx.m_attestations.begin(),
-                           tx.m_attestations.end(),
-                           [&](const auto& att) {
-                               return pubkeys.find(att.first) != pubkeys.end()
-                                   && tx.verify(secp_context.get(), att);
-                           });
+        return std::all_of(
+            tx.m_attestations.begin(),
+            tx.m_attestations.end(),
+            [&](const auto& att) {
+                const auto it = pubkeys.find(att.first);
+                return it != pubkeys.end() && tx.verify(att, it->second);
+            });
     }
 }

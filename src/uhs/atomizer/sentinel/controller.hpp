@@ -67,11 +67,6 @@ namespace cbdc::sentinel {
 
         std::unique_ptr<rpc::server> m_rpc_server;
 
-        std::unique_ptr<secp256k1_context,
-                        void(*)(secp256k1_context*)>
-            m_secp{secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
-                   &secp256k1_context_destroy};
-
         std::vector<std::unique_ptr<sentinel::rpc::client>>
             m_sentinel_clients{};
 
@@ -81,7 +76,7 @@ namespace cbdc::sentinel {
         std::uniform_int_distribution<size_t> m_shard_dist{};
         std::mutex m_rand_mut;
 
-        privkey_t m_privkey{};
+        pq_privkey_t m_privkey{};
 
         void send_transaction(const transaction::full_tx& tx);
 

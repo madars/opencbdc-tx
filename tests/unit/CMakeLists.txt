@@ -12,6 +12,7 @@ add_executable(run_unit_tests archiver_test.cpp
                               coordinator/controller_test.cpp
                               network_test.cpp
                               message_test.cpp
+                              mldsa_test.cpp
                               raft_test.cpp
                               rpc/tcp_test.cpp
                               sentinel_2pc/controller_test.cpp

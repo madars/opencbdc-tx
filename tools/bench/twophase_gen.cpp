@@ -77,13 +77,9 @@ auto main(int argc, char** argv) -> int {
                                              cfg.m_initial_mint_value);
 
         auto compact_mint_tx = cbdc::transaction::compact_tx(mint_tx);
-        auto secp = std::unique_ptr<secp256k1_context,
-                                    void(*)(secp256k1_context*)>{
-            secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
-            &secp256k1_context_destroy};
         for(size_t i = 0; i < cfg.m_attestation_threshold; i++) {
-            auto att = compact_mint_tx.sign(secp.get(),
-                                            cfg.m_sentinel_private_keys[i]);
+            auto att
+                = compact_mint_tx.sign(cfg.m_sentinel_private_keys[i], static_cast<uint32_t>(i));
             compact_mint_tx.m_attestations.insert(att);
         }
 

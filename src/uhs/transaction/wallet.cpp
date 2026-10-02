@@ -11,8 +11,6 @@
 #include "util/serialization/istream_serializer.hpp"
 #include "util/serialization/ostream_serializer.hpp"
 
-#include <secp256k1_schnorrsig.h>
-
 namespace cbdc {
     transaction::wallet::wallet() {
         auto seed = std::chrono::high_resolution_clock::now()
@@ -44,7 +42,7 @@ namespace cbdc {
     }
 
     auto transaction::wallet::send_to(const uint32_t amount,
-                                      const pubkey_t& payee,
+                                      const pq_pubkey_t& payee,
                                       bool sign_tx)
         -> std::optional<transaction::full_tx> {
         auto maybe_tx = accumulate_inputs(amount);
@@ -108,7 +106,7 @@ namespace cbdc {
 
     auto transaction::wallet::export_send_inputs(
         const transaction::full_tx& send_tx,
-        const pubkey_t& payee) -> std::vector<transaction::input> {
+        const pq_pubkey_t& payee) -> std::vector<transaction::input> {
         auto wit_comm
             = transaction::validation::get_p2pk_witness_commitment(payee);
         auto ret = std::vector<input>();
@@ -121,7 +119,7 @@ namespace cbdc {
         return ret;
     }
 
-    auto transaction::wallet::generate_key() -> pubkey_t {
+    auto transaction::wallet::generate_key() -> pq_pubkey_t {
         // Unique lock on m_keys, m_keygen and m_keygen_dist
         {
             // TODO: add config parameter where 0 = never reuse.
@@ -136,13 +134,10 @@ namespace cbdc {
             }
         }
 
-        std::uniform_int_distribution<unsigned char> keygen;
-
-        privkey_t seckey;
-        for(auto&& b : seckey) {
-            b = keygen(*m_random_source);
-        }
-        pubkey_t ret = pubkey_from_privkey(seckey, m_secp.get());
+        pq_pubkey_t ret{};
+        pq_privkey_t seckey{};
+        [[maybe_unused]] const auto keygen_ok = mldsa_keypair(ret, seckey);
+        assert(keygen_ok);
         {
             std::unique_lock<std::shared_mutex> lg(m_keys_mut);
             m_pubkeys.push_back(ret);
@@ -164,8 +159,8 @@ namespace cbdc {
             const auto& wit_commit
                 = tx.m_inputs[i].m_prevout_data.m_witness_program_commitment;
 
-            privkey_t seckey{};
-            pubkey_t pubkey{};
+            pq_privkey_t seckey{};
+            pq_pubkey_t pubkey{};
             bool key_ours = false;
             {
                 std::shared_lock<std::shared_mutex> sl(m_keys_mut);
@@ -188,26 +183,17 @@ namespace cbdc {
                     pubkey.data(),
                     pubkey.size());
 
-                secp256k1_keypair keypair{};
-                [[maybe_unused]] const auto ret
-                    = secp256k1_keypair_create(m_secp.get(),
-                                               &keypair,
-                                               seckey.data());
-                assert(ret == 1);
-
-                static_assert(sighash.size() == 32, "secp256k1_schnorrsig_sign32 expects a 32-byte hash");
-                std::array<unsigned char, sig_len> sig_arr{};
+                pq_signature_t sig_arr{};
                 [[maybe_unused]] const auto sign_ret
-                    = secp256k1_schnorrsig_sign32(m_secp.get(),
-                                                  sig_arr.data(),
-                                                  sighash.data(),
-                                                  &keypair,
-                                                  nullptr);
+                    = mldsa_sign(sighash.data(),
+                                 sighash.size(),
+                                 seckey,
+                                 sig_arr);
                 std::memcpy(
                     &sig[transaction::validation::p2pk_witness_prog_len],
                     sig_arr.data(),
                     sizeof(sig_arr));
-                assert(sign_ret == 1);
+                assert(sign_ret);
             }
         }
     }
@@ -233,7 +219,7 @@ namespace cbdc {
         assert(m_spend_queue.size() == m_utxos_set.size());
     }
 
-    auto transaction::wallet::seed(const privkey_t& privkey,
+    auto transaction::wallet::seed(const pq_privkey_t& privkey,
                                    uint32_t value,
                                    size_t begin_seed,
                                    size_t end_seed) -> bool {
@@ -241,7 +227,7 @@ namespace cbdc {
             return false;
         }
 
-        pubkey_t pubkey = pubkey_from_privkey(privkey, m_secp.get());
+        pq_pubkey_t pubkey = mldsa_pubkey_from_privkey(privkey);
         auto witness_commitment
             = transaction::validation::get_p2pk_witness_commitment(pubkey);
         {
@@ -365,7 +351,7 @@ namespace cbdc {
 
     auto transaction::wallet::send_to(size_t input_count,
                                       size_t output_count,
-                                      const pubkey_t& payee,
+                                      const pq_pubkey_t& payee,
                                       bool sign_tx)
         -> std::optional<transaction::full_tx> {
         assert(input_count > 0);
@@ -392,7 +378,7 @@ namespace cbdc {
                     break;
                 }
                 ret.m_inputs.push_back(seed_utxo.value());
-                ret.m_witness.emplace_back(sig_len, std::byte(0));
+                ret.m_witness.emplace_back(mldsa_sig_len, std::byte(0));
                 total_amount += m_seed_value;
                 m_seed_from++;
                 seeded_inputs++;
@@ -453,7 +439,7 @@ namespace cbdc {
 
     auto transaction::wallet::fan(size_t output_count,
                                   uint32_t value,
-                                  const pubkey_t& payee,
+                                  const pq_pubkey_t& payee,
                                   bool sign_tx)
         -> std::optional<transaction::full_tx> {
         const uint64_t amount = output_count * value;
@@ -504,7 +490,7 @@ namespace cbdc {
                     break;
                 }
                 ret.m_inputs.push_back(seed_utxo.value());
-                ret.m_witness.emplace_back(sig_len, std::byte(0));
+                ret.m_witness.emplace_back(mldsa_sig_len, std::byte(0));
                 total_amount += m_seed_value;
                 m_seed_from++;
                 seeded_inputs++;
@@ -513,7 +499,7 @@ namespace cbdc {
             auto utxo = m_spend_queue.begin();
             while((total_amount < amount) && (utxo != m_spend_queue.end())) {
                 ret.m_inputs.push_back(*utxo);
-                ret.m_witness.emplace_back(sig_len, std::byte(0));
+                ret.m_witness.emplace_back(mldsa_sig_len, std::byte(0));
                 total_amount += utxo->m_prevout_data.m_value;
                 std::advance(utxo, 1);
             }

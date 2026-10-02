@@ -44,9 +44,6 @@ namespace cbdc::sentinel_2pc {
             }
         } else {
             m_privkey = skey->second;
-
-            auto pubkey = pubkey_from_privkey(m_privkey, m_secp.get());
-            m_logger->info("Sentinel public key:", cbdc::to_string(pubkey));
         }
 
         auto retry_delay = std::chrono::seconds(1);
@@ -115,7 +112,7 @@ namespace cbdc::sentinel_2pc {
         auto compact_tx = cbdc::transaction::compact_tx(tx);
 
         if(m_opts.m_attestation_threshold > 0) {
-            auto attestation = compact_tx.sign(m_secp.get(), m_privkey);
+            auto attestation = compact_tx.sign(m_privkey, m_sentinel_id);
             compact_tx.m_attestations.insert(attestation);
         }
 
@@ -149,7 +146,7 @@ namespace cbdc::sentinel_2pc {
             return true;
         }
         auto compact_tx = cbdc::transaction::compact_tx(tx);
-        auto attestation = compact_tx.sign(m_secp.get(), m_privkey);
+        auto attestation = compact_tx.sign(m_privkey, m_sentinel_id);
         result_callback(std::move(attestation));
         return true;
     }

@@ -91,11 +91,6 @@ namespace cbdc::sentinel_2pc {
 
         std::unique_ptr<cbdc::sentinel::rpc::async_server> m_rpc_server;
 
-        std::unique_ptr<secp256k1_context,
-                        void(*)(secp256k1_context*)>
-            m_secp{secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
-                   &secp256k1_context_destroy};
-
         coordinator::rpc::client m_coordinator_client;
 
         std::vector<std::unique_ptr<sentinel::rpc::client>>
@@ -105,7 +100,7 @@ namespace cbdc::sentinel_2pc {
         std::default_random_engine m_rand{m_r()};
         std::uniform_int_distribution<size_t> m_dist{};
 
-        privkey_t m_privkey{};
+        pq_privkey_t m_privkey{};
     };
 }
 

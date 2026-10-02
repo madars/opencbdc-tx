@@ -134,7 +134,7 @@ namespace cbdc::test {
     void load_config(const std::string& config_file,
                      cbdc::config::options& opts);
 
-    void sign_tx(compact_transaction& tx, const privkey_t& key);
+    void sign_tx(compact_transaction& tx, const pq_privkey_t& key);
 }
 
 #endif // OPENCBDC_TX_TESTS_UTIL_H_

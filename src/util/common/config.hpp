@@ -16,6 +16,7 @@
 #include "hashmap.hpp"
 #include "keys.hpp"
 #include "logging.hpp"
+#include "mldsa.hpp"
 #include "util/network/socket.hpp"
 
 #include <map>
@@ -190,7 +191,7 @@ namespace cbdc::config {
         std::vector<shard_range_t> m_shard_ranges;
 
         /// private key used for initial seed.
-        std::optional<privkey_t> m_seed_privkey;
+        std::optional<pq_privkey_t> m_seed_privkey;
         /// output value to use for initial seed.
         size_t m_seed_value{0};
         /// starting index for faked input used for initial seed.
@@ -250,11 +251,11 @@ namespace cbdc::config {
         /// Number of load generators over which to split pre-seeded UTXOs.
         size_t m_loadgen_count{0};
 
-        /// Private keys for sentinels.
-        std::unordered_map<size_t, privkey_t> m_sentinel_private_keys;
+        /// Private keys for sentinels, indexed by sentinel ID.
+        std::unordered_map<size_t, pq_privkey_t> m_sentinel_private_keys;
 
-        /// Public keys for sentinels.
-        std::unordered_set<pubkey_t, hashing::null> m_sentinel_public_keys;
+        /// Public keys for sentinels, indexed by sentinel ID.
+        std::unordered_map<size_t, pq_pubkey_t> m_sentinel_public_keys;
 
         /// Number of sentinel attestations needed for a compact transaction.
         size_t m_attestation_threshold{defaults::attestation_threshold};

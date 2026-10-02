@@ -81,12 +81,6 @@ namespace cbdc {
         cbdc::locking_shard::rpc::status_client m_shard_status_client;
         std::shared_ptr<logging::log> m_logger;
         cbdc::config::options m_opts;
-
-        std::unique_ptr<secp256k1_context,
-                        void(*)(secp256k1_context*)>
-            m_secp{secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
-                   &secp256k1_context_destroy};
-
         static constexpr auto m_client_timeout
             = std::chrono::milliseconds(5000);
     };

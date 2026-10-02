@@ -134,26 +134,15 @@ namespace cbdc::transaction {
         }
     }
 
-    auto compact_tx::sign(secp256k1_context* ctx, const privkey_t& key) const
+    auto compact_tx::sign(const pq_privkey_t& key,
+                          uint32_t sentinel_id) const
         -> sentinel_attestation {
-        auto payload = hash();
-        auto pubkey = pubkey_from_privkey(key, ctx);
-        secp256k1_keypair keypair{};
+        const auto payload = hash();
+        auto sig = pq_signature_t();
         [[maybe_unused]] const auto ret
-            = secp256k1_keypair_create(ctx, &keypair, key.data());
-        assert(ret == 1);
-
-        auto sig = signature_t();
-        static_assert(payload.size() == 32, "secp256k1_schnorrsig_sign32 expects a 32-byte hash");
-
-        [[maybe_unused]] const auto sign_ret
-            = secp256k1_schnorrsig_sign32(ctx,
-                                          sig.data(),
-                                          payload.data(),
-                                          &keypair,
-                                          nullptr);
-        assert(sign_ret == 1);
-        return {pubkey, sig};
+            = mldsa_sign(payload.data(), payload.size(), key, sig);
+        assert(ret);
+        return {sentinel_id, sig};
     }
 
     auto compact_tx::hash() const -> hash_t {
@@ -168,23 +157,12 @@ namespace cbdc::transaction {
         return ret;
     }
 
-    auto compact_tx::verify(secp256k1_context* ctx,
-                            const sentinel_attestation& att) const -> bool {
-        auto payload = hash();
-        secp256k1_xonly_pubkey pubkey{};
-        if(secp256k1_xonly_pubkey_parse(ctx, &pubkey, att.first.data()) != 1) {
-            return false;
-        }
-
-        if(secp256k1_schnorrsig_verify(ctx,
-                                       att.second.data(),
-                                       payload.data(),
-                                       payload.size(),
-                                       &pubkey)
-           != 1) {
-            return false;
-        }
-
-        return true;
+    auto compact_tx::verify(const sentinel_attestation& att,
+                            const pq_pubkey_t& pubkey) const -> bool {
+        const auto payload = hash();
+        return mldsa_verify(payload.data(),
+                            payload.size(),
+                            att.second,
+                            pubkey);
     }
 }

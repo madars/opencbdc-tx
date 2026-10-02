@@ -348,10 +348,11 @@ namespace cbdc::config {
             if(!priv_str) {
                 return "Seed range defined but missing a private key";
             }
-            if(priv_str.value().size() != sizeof(privkey_t) * 2) {
+            if(priv_str.value().size() != mldsa_privkey_len * 2) {
                 return "Invalid seed private key length";
             }
-            opts.m_seed_privkey = hash_from_hex(priv_str.value());
+            opts.m_seed_privkey
+                = bytes_from_hex<mldsa_privkey_len>(priv_str.value());
             opts.m_seed_value
                 = cfg.get_ulong(seed_value).value_or(opts.m_seed_value);
         }
@@ -434,8 +435,12 @@ namespace cbdc::config {
             const auto sentinel_private_key
                 = cfg.get_string(sentinel_private_key_key);
             if(sentinel_private_key.has_value()) {
-                auto key = hash_from_hex(sentinel_private_key.value());
-                opts.m_sentinel_private_keys[i] = key;
+                if(sentinel_private_key->size() != mldsa_privkey_len * 2) {
+                    return "Invalid sentinel private key length";
+                }
+                opts.m_sentinel_private_keys[i]
+                    = bytes_from_hex<mldsa_privkey_len>(
+                        sentinel_private_key.value());
             }
 
             const auto sentinel_public_key_key
@@ -450,8 +455,11 @@ namespace cbdc::config {
                      + std::to_string(i) + " (" + sentinel_public_key_key
                      + ")";
             }
-            auto key = hash_from_hex(sentinel_public_key.value());
-            opts.m_sentinel_public_keys.insert(key);
+            if(sentinel_public_key->size() != mldsa_pubkey_len * 2) {
+                return "Invalid sentinel public key length";
+            }
+            opts.m_sentinel_public_keys[i]
+                = bytes_from_hex<mldsa_pubkey_len>(sentinel_public_key.value());
         }
         return std::nullopt;
     }

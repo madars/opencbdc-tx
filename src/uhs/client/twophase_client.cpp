@@ -78,7 +78,7 @@ namespace cbdc {
         auto ctx = transaction::compact_tx(mint_tx);
         for(size_t i = 0; i < m_opts.m_attestation_threshold; i++) {
             auto att
-                = ctx.sign(m_secp.get(), m_opts.m_sentinel_private_keys[i]);
+                = ctx.sign(m_opts.m_sentinel_private_keys[i], static_cast<uint32_t>(i));
             ctx.m_attestations.insert(att);
         }
         auto done = std::promise<void>();

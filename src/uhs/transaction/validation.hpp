@@ -11,8 +11,6 @@
 #include <cassert>
 #include <memory>
 #include <optional>
-#include <secp256k1.h>
-#include <secp256k1_schnorrsig.h>
 #include <set>
 #include <variant>
 
@@ -23,8 +21,9 @@ namespace cbdc::transaction::validation {
     };
 
     static constexpr auto p2pk_witness_prog_len
-        = sizeof(witness_program_type) + sizeof(pubkey_t);
-    static constexpr auto p2pk_witness_len = p2pk_witness_prog_len + sig_len;
+        = sizeof(witness_program_type) + mldsa_pubkey_len;
+    static constexpr auto p2pk_witness_len
+        = p2pk_witness_prog_len + mldsa_sig_len;
 
     /// Types of input validation errors
     enum class input_error_code : uint8_t {
@@ -150,7 +149,7 @@ namespace cbdc::transaction::validation {
         -> std::optional<tx_error>;
     auto check_output_value(const transaction::output& out)
         -> std::optional<output_error_code>;
-    auto get_p2pk_witness_commitment(const pubkey_t& payee) -> hash_t;
+    auto get_p2pk_witness_commitment(const pq_pubkey_t& payee) -> hash_t;
     auto to_string(const tx_error& err) -> std::string;
 
     /// Validates the sentinel attestations attached to a compact transaction.
@@ -162,7 +161,7 @@ namespace cbdc::transaction::validation {
     ///         to the compact transaction.
     auto check_attestations(
         const transaction::compact_tx& tx,
-        const std::unordered_set<pubkey_t, hashing::null>& pubkeys,
+        const std::unordered_map<size_t, pq_pubkey_t>& pubkeys,
         size_t threshold) -> bool;
 }
 

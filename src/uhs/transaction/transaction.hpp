@@ -9,6 +9,7 @@
 #include "crypto/sha256.h"
 #include "util/common/hash.hpp"
 #include "util/common/keys.hpp"
+#include "util/common/mldsa.hpp"
 #include "util/serialization/format.hpp"
 #include "util/serialization/util.hpp"
 
@@ -106,9 +107,10 @@ namespace cbdc::transaction {
         full_tx() = default;
     };
 
-    /// Sentinel attestation type. Public key of the sentinel and signature of
-    /// a compact transaction hash.
-    using sentinel_attestation = std::pair<pubkey_t, signature_t>;
+    /// Sentinel attestation type. The ID of the attesting sentinel and its
+    /// signature of the compact transaction hash. Verifiers resolve the ID to
+    /// a configured public key, so the key is not carried on the wire.
+    using sentinel_attestation = std::pair<uint32_t, pq_signature_t>;
 
     /// \brief A condensed, hash-only transaction representation
     ///
@@ -126,9 +128,9 @@ namespace cbdc::transaction {
         /// The set of hashes of the new outputs created in the transaction
         std::vector<hash_t> m_uhs_outputs;
 
-        /// Signatures from sentinels attesting the compact TX is valid.
-        std::unordered_map<pubkey_t, signature_t, hashing::null>
-            m_attestations;
+        /// Signatures from sentinels attesting the compact TX is valid,
+        /// indexed by sentinel ID.
+        std::unordered_map<uint32_t, pq_signature_t> m_attestations;
 
         /// Equality of two compact transactions. Only compares the transaction
         /// IDs.
@@ -139,24 +141,22 @@ namespace cbdc::transaction {
         explicit compact_tx(const full_tx& tx);
 
         /// Sign the compact transaction and return the signature.
-        /// \param ctx secp256k1 context with which to sign the transaction.
         /// \param key private key with which to sign the transaction.
-        /// \return sentinel attestation containing the signature and
-        ///         associated public key.
-        [[nodiscard]] auto sign(secp256k1_context* ctx,
-                                const privkey_t& key) const
+        /// \param sentinel_id ID of the sentinel signing the attestation.
+        /// \return sentinel attestation containing the signature and ID.
+        [[nodiscard]] auto sign(const pq_privkey_t& key,
+                                uint32_t sentinel_id) const
             -> sentinel_attestation;
 
         /// Verify the given attestation contains a valid signature that
         /// matches the compact transaction.
-        /// \param ctx secp256k1 contact with which to validate the signature.
-        /// \param att sentinel attestation containing a public key and
+        /// \param att sentinel attestation containing a sentinel ID and
         ///            signature.
+        /// \param pubkey public key of the attesting sentinel.
         /// \return true if the given attestation is valid for this compact
         ///         transaction.
-        [[nodiscard]] auto verify(secp256k1_context* ctx,
-                                  const sentinel_attestation& att) const
-            -> bool;
+        [[nodiscard]] auto verify(const sentinel_attestation& att,
+                                  const pq_pubkey_t& pubkey) const -> bool;
 
         /// Return the hash of the compact transaction, without the sentinel
         /// attestations included. Used as the message which is signed in

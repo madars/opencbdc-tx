@@ -9,7 +9,6 @@
 #include "uhs/transaction/transaction.hpp"
 #include "util/common/config.hpp"
 #include "util/common/hashmap.hpp"
-#include "util/common/random_source.hpp"
 
 #include <atomic>
 #include <fstream>
@@ -18,7 +17,6 @@
 #include <mutex>
 #include <optional>
 #include <random>
-#include <secp256k1.h>
 #include <set>
 #include <shared_mutex>
 #include <unordered_map>
@@ -58,7 +56,7 @@ namespace cbdc::transaction {
         /// \param sign_tx true if the wallet should sign this transaction.
         /// \return the completed transaction.
         /// \see \ref export_send_inputs
-        auto send_to(uint32_t amount, const pubkey_t& payee, bool sign_tx)
+        auto send_to(uint32_t amount, const pq_pubkey_t& payee, bool sign_tx)
             -> std::optional<full_tx>;
 
         /// \brief Generates a new send transaction with the specified number
@@ -78,7 +76,7 @@ namespace cbdc::transaction {
         /// \return the completed transaction.
         auto send_to(size_t input_count,
                      size_t output_count,
-                     const pubkey_t& payee,
+                     const pq_pubkey_t& payee,
                      bool sign_tx) -> std::optional<full_tx>;
 
         /// \brief Generates a transaction sending multiple outputs of a set
@@ -97,7 +95,7 @@ namespace cbdc::transaction {
         /// \see \ref export_send_inputs
         auto fan(size_t output_count,
                  uint32_t value,
-                 const pubkey_t& payee,
+                 const pq_pubkey_t& payee,
                  bool sign_tx) -> std::optional<transaction::full_tx>;
 
         /// \brief Extracts the transaction data that recipients need from
@@ -114,13 +112,13 @@ namespace cbdc::transaction {
         ///         empty vector if there is no transaction output with the
         ///         corresponding payee information.
         static auto export_send_inputs(const full_tx& send_tx,
-                                       const pubkey_t& payee)
+                                       const pq_pubkey_t& payee)
             -> std::vector<input>;
 
         /// Generates a new public key at which this wallet can receive
         /// payments via \ref send_to.
         /// \return a new public key.
-        auto generate_key() -> pubkey_t;
+        auto generate_key() -> pq_pubkey_t;
 
         /// \brief Marks the wallet as having pre-seeded outputs to spend.
         ///
@@ -131,7 +129,7 @@ namespace cbdc::transaction {
         /// \param begin_seed the start index to use for the seeded outputs.
         /// \param end_seed the end index to use for the seeded outputs.
         /// \return true if setting the seed parameters succeeded.
-        auto seed(const privkey_t& privkey,
+        auto seed(const pq_privkey_t& privkey,
                   uint32_t value,
                   size_t begin_seed,
                   size_t end_seed) -> bool;
@@ -237,16 +235,16 @@ namespace cbdc::transaction {
         /// m_witness_programs.
         /// \warning Do not lock simultaneously with m_utxos_mut.
         mutable std::shared_mutex m_keys_mut;
-        std::unordered_map<pubkey_t,
-                           privkey_t,
-                           hashing::const_sip_hash<pubkey_t>>
+        std::unordered_map<pq_pubkey_t,
+                           pq_privkey_t,
+                           hashing::const_sip_hash<pq_pubkey_t>>
             m_keys;
-        std::vector<pubkey_t> m_pubkeys;
+        std::vector<pq_pubkey_t> m_pubkeys;
         std::default_random_engine m_shuffle;
 
         // TODO: currently this map grows unbounded, we need to garbage
         //       collect it
-        std::unordered_map<hash_t, pubkey_t, hashing::const_sip_hash<hash_t>>
+        std::unordered_map<hash_t, pq_pubkey_t, hashing::const_sip_hash<hash_t>>
             m_witness_programs;
 
         /// Creates a new input from the seed set based on the parameters
@@ -255,15 +253,6 @@ namespace cbdc::transaction {
         ///                 for.
         /// \returns the generated input to use in a transaction.
         auto create_seeded_input(size_t seed_idx) -> std::optional<input>;
-
-        static const inline auto m_secp
-            = std::unique_ptr<secp256k1_context,
-                              void(*)(secp256k1_context*)>(
-                secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
-                &secp256k1_context_destroy);
-
-        static const inline auto m_random_source
-            = std::make_unique<random_source>(config::random_source);
 
         /// Given a set of credit inputs and a set of debits, add and remove
         /// respective the UTXOs and update the wallet's balance.

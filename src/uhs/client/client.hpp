@@ -12,11 +12,8 @@
 
 namespace cbdc {
     namespace address {
-        static constexpr auto bits_per_byte = 8;
-        static constexpr auto bech32_bits_per_symbol = 5;
-
         auto decode(const std::string& addr_str)
-            -> std::optional<cbdc::hash_t>;
+            -> std::optional<pq_pubkey_t>;
     }
 
     /// External client for sending new transactions to the system.
@@ -79,7 +76,7 @@ namespace cbdc {
         /// \return the transaction sent to the network for verification and
         ///         the response from the sentinel client, or std::nullopt if
         ///         generating or transmitting the transaction failed.
-        auto send(uint32_t value, const pubkey_t& payee)
+        auto send(uint32_t value, const pq_pubkey_t& payee)
             -> std::pair<std::optional<transaction::full_tx>,
                          std::optional<cbdc::sentinel::execute_response>>;
 
@@ -95,7 +92,7 @@ namespace cbdc {
         /// \return the transaction sent to the network for verification and
         ///         the response from the sentinel client, or std::nullopt if
         ///         generating or transmitting the transaction failed.
-        auto fan(uint32_t count, uint32_t value, const pubkey_t& payee)
+        auto fan(uint32_t count, uint32_t value, const pq_pubkey_t& payee)
             -> std::pair<std::optional<transaction::full_tx>,
                          std::optional<cbdc::sentinel::execute_response>>;
 
@@ -112,7 +109,7 @@ namespace cbdc {
         ///         empty vector if there is no transaction output with the
         ///         corresponding payee information.
         static auto export_send_inputs(const transaction::full_tx& send_tx,
-                                       const pubkey_t& payee)
+                                       const pq_pubkey_t& payee)
             -> std::vector<transaction::input>;
 
         /// \brief Imports transaction data from a sender.
@@ -137,7 +134,7 @@ namespace cbdc {
         /// money to this client using \ref send.
         /// \return a wallet address.
         /// \see \ref transaction::wallet::generate_key
-        auto new_address() -> pubkey_t;
+        auto new_address() -> pq_pubkey_t;
 
         /// Returns the balance in this client's wallet.
         /// \return balance in base currency units.
@@ -185,7 +182,7 @@ namespace cbdc {
         /// \param value the amount to send in the base unit of the currency.
         /// \param payee the destination address of the transfer.
         /// \return the transaction created.
-        auto create_transaction(uint32_t value, const pubkey_t& payee)
+        auto create_transaction(uint32_t value, const pq_pubkey_t& payee)
             -> std::optional<transaction::full_tx>;
 
         /// \brief Send the given transaction to the sentinel.
@@ -225,14 +222,6 @@ namespace cbdc {
         /// the transaction's keys.
         /// \param tx the transaction to sign.
         void sign_transaction(transaction::full_tx& tx);
-
-        /// \brief Client address type signifier.
-        /// Prefixes client address data, indicating which addressing regime
-        /// clients should use to transact with the address.
-        enum class address_type : uint8_t {
-            /// Pay-to-Public-Key (P2PK) address data.
-            public_key = 0
-        };
 
       protected:
         /// \brief Initializes the derived class.

@@ -24,23 +24,21 @@ class WalletTxValidationTest : public ::testing::Test {
         m_valid_tx = wallet1.send_to(20, wallet2.generate_key(), true).value();
         m_valid_tx_multi_inp
             = wallet1.send_to(200, wallet2.generate_key(), true).value();
+
+        ASSERT_TRUE(cbdc::mldsa_keypair(m_pub0, m_priv0));
+        ASSERT_TRUE(cbdc::mldsa_keypair(m_pub1, m_priv1));
+        m_pubkeys[0] = m_pub0;
+        m_pubkeys[1] = m_pub1;
     }
 
     cbdc::transaction::full_tx m_valid_tx{};
     cbdc::transaction::full_tx m_valid_tx_multi_inp{};
 
-    std::unique_ptr<secp256k1_context, void(*)(secp256k1_context*)>
-        m_secp{secp256k1_context_create(SECP256K1_CONTEXT_SIGN
-                                        | SECP256K1_CONTEXT_VERIFY),
-               &secp256k1_context_destroy};
-    cbdc::privkey_t m_priv0{cbdc::hash_from_hex(
-        "0000000000000001000000000000000000000000000000000000000000000000")};
-    cbdc::pubkey_t m_pub0{cbdc::pubkey_from_privkey(m_priv0, m_secp.get())};
-    cbdc::privkey_t m_priv1{cbdc::hash_from_hex(
-        "1000000000000001000000000000000000000000000000000000000000000000")};
-    cbdc::pubkey_t m_pub1{cbdc::pubkey_from_privkey(m_priv1, m_secp.get())};
-    std::unordered_set<cbdc::pubkey_t, cbdc::hashing::null> m_pubkeys{m_pub0,
-                                                                      m_pub1};
+    cbdc::pq_privkey_t m_priv0{};
+    cbdc::pq_pubkey_t m_pub0{};
+    cbdc::pq_privkey_t m_priv1{};
+    cbdc::pq_pubkey_t m_pub1{};
+    std::unordered_map<size_t, cbdc::pq_pubkey_t> m_pubkeys{};
 };
 
 TEST_F(WalletTxValidationTest, valid) {
@@ -204,7 +202,8 @@ TEST_F(WalletTxValidationTest, witness_p2pk_program_mismatch) {
 }
 
 TEST_F(WalletTxValidationTest, witness_p2pk_invalid_pubkey) {
-    // pubkey all zeroes is invalid
+    // ML-DSA public keys have no invalid bit-patterns, so replacing the public
+    // key simply causes signature verification to fail.
     auto invalid_pubkey = cbdc::witness_t(32, std::byte(0));
     std::copy(
         std::begin(invalid_pubkey),
@@ -221,7 +220,7 @@ TEST_F(WalletTxValidationTest, witness_p2pk_invalid_pubkey) {
     ASSERT_TRUE(err.has_value());
     ASSERT_EQ(
         err.value(),
-        cbdc::transaction::validation::witness_error_code::invalid_public_key);
+        cbdc::transaction::validation::witness_error_code::invalid_signature);
 }
 
 TEST_F(WalletTxValidationTest, witness_p2pk_invalid_signature) {
@@ -316,10 +315,10 @@ TEST_F(WalletTxValidationTest, summation_overflow) {
 
 TEST_F(WalletTxValidationTest, sign_verify_compact) {
     auto ctx = cbdc::transaction::compact_tx(m_valid_tx);
-    auto att0 = ctx.sign(m_secp.get(), m_priv0);
-    auto att1 = ctx.sign(m_secp.get(), m_priv1);
-    ASSERT_TRUE(ctx.verify(m_secp.get(), att0));
-    ASSERT_TRUE(ctx.verify(m_secp.get(), att1));
+    auto att0 = ctx.sign(m_priv0, 0);
+    auto att1 = ctx.sign(m_priv1, 1);
+    ASSERT_TRUE(ctx.verify(att0, m_pub0));
+    ASSERT_TRUE(ctx.verify(att1, m_pub1));
 
     ASSERT_FALSE(
         cbdc::transaction::validation::check_attestations(ctx, m_pubkeys, 2));

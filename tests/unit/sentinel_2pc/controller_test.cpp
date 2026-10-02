@@ -24,16 +24,11 @@ class sentinel_2pc_test : public ::testing::Test {
         const auto coordinator_ep
             = std::make_pair(cbdc::network::localhost, m_coordinator_port);
         m_opts.m_sentinel_endpoints.push_back(sentinel_ep);
-        constexpr auto sentinel_private_key
-            = "000000000000000100000000000000000000000000000000000000000000000"
-              "0";
-        constexpr auto sentinel_public_key
-            = "eaa649f21f51bdbae7be4ae34ce6e5217a58fdce7f47f9aa7f3b58fa2120e2b"
-              "3";
-        m_opts.m_sentinel_private_keys[0]
-            = cbdc::hash_from_hex(sentinel_private_key);
-        m_opts.m_sentinel_public_keys.insert(
-            cbdc::hash_from_hex(sentinel_public_key));
+        cbdc::pq_pubkey_t sentinel_pub{};
+        cbdc::pq_privkey_t sentinel_priv{};
+        ASSERT_TRUE(cbdc::mldsa_keypair(sentinel_pub, sentinel_priv));
+        m_opts.m_sentinel_private_keys[0] = sentinel_priv;
+        m_opts.m_sentinel_public_keys[0] = sentinel_pub;
 
         m_opts.m_coordinator_endpoints.resize(1);
         m_opts.m_coordinator_endpoints[0].push_back(coordinator_ep);
@@ -170,15 +165,11 @@ TEST_F(sentinel_2pc_test, digest_valid_transaction_network) {
 TEST_F(sentinel_2pc_test, tx_validation_test) {
     ASSERT_TRUE(m_ctl->init());
     auto ctx = cbdc::transaction::compact_tx(m_valid_tx);
-    auto secp = std::unique_ptr<secp256k1_context,
-                                void(*)(secp256k1_context*)>{
-        secp256k1_context_create(SECP256K1_CONTEXT_SIGN
-                                 | SECP256K1_CONTEXT_VERIFY),
-        &secp256k1_context_destroy};
     auto res
         = m_ctl->validate_transaction(m_valid_tx, [&](auto validation_res) {
               ASSERT_TRUE(validation_res.has_value());
-              ASSERT_TRUE(ctx.verify(secp.get(), validation_res.value()));
+              ASSERT_TRUE(ctx.verify(validation_res.value(),
+                                     m_opts.m_sentinel_public_keys.at(0)));
           });
     ASSERT_TRUE(res);
 }
@@ -249,10 +240,7 @@ TEST_F(sentinel_2pc_test, out_of_range_sentinel_id) {
 
     // Add private key for the bad sentinel ID to avoid triggering the error
     // "No private key specified".
-    constexpr auto sentinel_private_key
-        = "0000000000000001000000000000000000000000000000000000000000000001";
-    m_opts.m_sentinel_private_keys[bad_sentinel_id]
-        = cbdc::hash_from_hex(sentinel_private_key);
+    m_opts.m_sentinel_private_keys[bad_sentinel_id] = cbdc::pq_privkey_t{};
 
     auto ctl
         = std::make_unique<cbdc::sentinel_2pc::controller>(bad_sentinel_id,
